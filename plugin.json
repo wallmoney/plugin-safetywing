@@ -1,7 +1,7 @@
 {
   "id": "wallmoney-safetywing",
   "org": "wallmoney",
-  "repo": "plug-safetywing",
+  "repo": "plugin-safetywing",
   "name": "SafetyWing",
   "description": "Choose SafetyWing nomad insurance, review country availability, collect member details, and prefill payment from Wall Money.",
   "version": "0.2.0",
@@ -20,7 +20,7 @@
         "label": "Open plugin",
         "action": {
           "type": "navigate",
-          "href": "/marketplace/wallmoney/plug-safetywing"
+          "href": "/marketplace/wallmoney/plugin-safetywing"
         }
       }
     }
