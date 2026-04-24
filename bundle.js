@@ -29,12 +29,26 @@ const PLANS = {
 };
 
 const AGE_BANDS = [
-  { id: 'under10', label: 'Under 10', essential4w: 31.36, completeMonth: 88.75 },
-  { id: '10-39', label: '10-39', essential4w: 62.72, completeMonth: 177.5 },
-  { id: '40-49', label: '40-49', essential4w: 104.44, completeMonth: 244.5 },
-  { id: '50-59', label: '50-59', essential4w: 166.24, completeMonth: 319.25 },
-  { id: '60-69', label: '60-69', essential4w: 227.36, completeMonth: 416.5 }
+  { id: 'under10', label: 'Under 10', icon: '🧒', essential4w: 31.36, completeMonth: 88.75 },
+  { id: '10-39', label: '10-39', icon: '🧭', essential4w: 62.72, completeMonth: 177.5 },
+  { id: '40-49', label: '40-49', icon: '🧳', essential4w: 104.44, completeMonth: 244.5 },
+  { id: '50-59', label: '50-59', icon: '🌤️', essential4w: 166.24, completeMonth: 319.25 },
+  { id: '60-69', label: '60-69', icon: '🌍', essential4w: 227.36, completeMonth: 416.5 }
 ];
+
+const ESSENTIAL_US_ADDON_4W = {
+  '10-39': 53.48,
+  '40-49': 88.48,
+  '50-59': 153.44,
+  '60-69': 210.56
+};
+
+const COMPLETE_HK_SG_US_ADDON_MONTHLY = {
+  '10-39': 131.0,
+  '40-49': 195.0,
+  '50-59': 304.0,
+  '60-69': 560.0
+};
 
 const COUNTRIES = [
   ['🇦🇱', 'Albania'], ['🇦🇩', 'Andorra'], ['🇦🇷', 'Argentina'], ['🇦🇺', 'Australia'],
@@ -107,37 +121,84 @@ function ageConfig(state) {
   return AGE_BANDS.find((age) => age.id === state.age) || AGE_BANDS[1];
 }
 
+function ageOptionsForPlan(planId) {
+  if (planId === 'complete') {
+    return AGE_BANDS.filter((age) => age.id !== 'under10').map((age) => ({
+      id: age.id,
+      label: age.id === '10-39' ? '18-39' : age.id === '60-69' ? '60-64' : age.label,
+      icon: age.icon,
+      essential4w: age.essential4w,
+      completeMonth: age.completeMonth
+    }));
+  }
+  return AGE_BANDS;
+}
+
 function availableTerms(state) {
   return state.plan === 'essential'
     ? [
-        { id: '4w', label: '4 weeks', helper: 'Flexible coverage' },
-        { id: '364d', label: '364 days', helper: 'Pay in full • Save 10%' }
-      ]
+        { id: '4w', label: '4 weeks', helper: 'Flexible coverage', icon: '🗓️' }
+      ].concat(state.age === 'under10'
+        ? []
+        : [
+            { id: '364d', label: '364 days', helper: 'Pay in full • Save 10%', icon: '📅' }
+          ])
     : [
-        { id: 'monthly', label: 'Monthly', helper: 'Rolling monthly cover' },
-        { id: 'yearly', label: 'Yearly', helper: 'Pay yearly • Save 10%' }
+        { id: 'monthly', label: 'Monthly', helper: 'Rolling monthly cover', icon: '🗓️' },
+        { id: 'yearly', label: 'Yearly', helper: 'Pay yearly • Save 10%', icon: '📅' }
       ];
+}
+
+function regionAddonBase(state) {
+  if (state.plan === 'essential') {
+    return ESSENTIAL_US_ADDON_4W[state.age] || 0;
+  }
+  return COMPLETE_HK_SG_US_ADDON_MONTHLY[state.age] || 0;
+}
+
+function regionAddonPrice(state) {
+  const base = regionAddonBase(state);
+  if (!base) return 0;
+  if (state.plan === 'essential') {
+    return state.region === 'us' ? (state.term === '364d' ? base * 13 * 0.9 : base) : 0;
+  }
+  return state.region === 'hksgus' ? (state.term === 'yearly' ? base * 12 * 0.9 : base) : 0;
 }
 
 function regionOptions(state) {
   if (state.plan === 'essential') {
     return [
-      { id: 'standard', label: 'Worldwide excluding US', helper: 'Base cover', icon: '🌍' },
-      { id: 'us', label: 'Add US coverage', helper: 'Extra premium may apply', icon: '🗽', badge: 'Add-on' }
-    ];
+      { id: 'standard', label: 'Worldwide excluding US', helper: 'Base cover', icon: '🌍' }
+    ].concat(regionAddonBase(state)
+      ? [
+          {
+            id: 'us',
+            label: 'US coverage',
+            helper: `${formatMoney(regionAddonBase(state))} extra price`,
+            icon: '🗽',
+            badge: 'Add-on'
+          }
+        ]
+      : []);
   }
   return [
     { id: 'standard', label: 'Standard worldwide', helper: 'HK, Singapore, and US excluded', icon: '🌐' },
-    { id: 'hksgus', label: 'Add HK, Singapore & US', helper: 'Extra premium may apply', icon: '✈️', badge: 'Add-on' }
+    {
+      id: 'hksgus',
+      label: 'Hong Kong, Singapore & US',
+      helper: `${formatMoney(regionAddonBase(state))} extra price`,
+      icon: '✈️',
+      badge: 'Add-on'
+    }
   ];
 }
 
 function priceFor(state) {
   const age = ageConfig(state);
   if (state.plan === 'essential') {
-    return state.term === '364d' ? age.essential4w * 13 * 0.9 : age.essential4w;
+    return (state.term === '364d' ? age.essential4w * 13 * 0.9 : age.essential4w) + regionAddonPrice(state);
   }
-  return state.term === 'yearly' ? age.completeMonth * 12 * 0.9 : age.completeMonth;
+  return (state.term === 'yearly' ? age.completeMonth * 12 * 0.9 : age.completeMonth) + regionAddonPrice(state);
 }
 
 function periodFor(state) {
@@ -202,6 +263,7 @@ function stateButton(state, label, patch, variant, message) {
 function planPatch(planId) {
   return {
     plan: planId,
+    age: '10-39',
     term: planId === 'essential' ? '4w' : 'monthly',
     region: 'standard'
   };
@@ -217,6 +279,23 @@ function billingSummary(state) {
   return term ? `${term.label}${term.helper ? ` • ${term.helper}` : ''}` : activePeriodLabel(state);
 }
 
+function normalizeCoverageState(state) {
+  let next = state;
+  const ageOptions = ageOptionsForPlan(next.plan);
+  if (!ageOptions.some((age) => age.id === next.age)) {
+    next = nextState(next, { age: ageOptions[0].id });
+  }
+  const termOptions = availableTerms(next);
+  if (!termOptions.some((term) => term.id === next.term)) {
+    next = nextState(next, { term: termOptions[0].id });
+  }
+  const regions = regionOptions(next);
+  if (!regions.some((region) => region.id === next.region)) {
+    next = nextState(next, { region: regions[0].id });
+  }
+  return next;
+}
+
 function navigationButtons(state, options) {
   const current = clampStep(state.step);
   const nextLabel = options && options.nextLabel ? options.nextLabel : 'Next';
@@ -229,32 +308,36 @@ function navigationButtons(state, options) {
 }
 
 function summaryBadges(state) {
-  const plan = PLANS[state.plan];
-  const region = regionOptions(state).find((item) => item.id === state.region) || regionOptions(state)[0];
+  const normalized = normalizeCoverageState(state);
+  const plan = PLANS[normalized.plan];
+  const region = regionOptions(normalized).find((item) => item.id === normalized.region) || regionOptions(normalized)[0];
+  const ageLabel = ageOptionsForPlan(normalized.plan).find((age) => age.id === normalized.age).label;
   return {
     type: 'badgeGrid',
     items: [
       { label: 'Geographic coverage', value: plan.countries, tone: 'muted' },
       { label: 'Coverage at home', value: plan.homeCoverage, tone: 'muted' },
-      { label: 'Selected age', value: ageConfig(state).label, tone: 'muted' },
-      { label: 'Selected billing', value: billingSummary(state), tone: annualDiscount(state) ? 'success' : 'muted' },
+      { label: 'Selected age', value: ageLabel, tone: 'muted' },
+      { label: 'Selected billing', value: billingSummary(normalized), tone: annualDiscount(normalized) ? 'success' : 'muted' },
       { label: 'Extra cover', value: region.helper, tone: region.id === 'standard' ? 'muted' : 'warning' },
-      { label: 'Discount', value: annualDiscount(state) ? '10% applied' : 'No annual discount', tone: annualDiscount(state) ? 'success' : 'muted' }
+      { label: 'Discount', value: annualDiscount(normalized) ? '10% applied' : 'No annual discount', tone: annualDiscount(normalized) ? 'success' : 'muted' }
     ]
   };
 }
 
 function summaryList(state) {
-  const plan = PLANS[state.plan];
-  const region = regionOptions(state).find((item) => item.id === state.region) || regionOptions(state)[0];
+  const normalized = normalizeCoverageState(state);
+  const plan = PLANS[normalized.plan];
+  const region = regionOptions(normalized).find((item) => item.id === normalized.region) || regionOptions(normalized)[0];
+  const ageLabel = ageOptionsForPlan(normalized.plan).find((age) => age.id === normalized.age).label;
   return {
     type: 'list',
     items: [
       { label: 'Plan', value: plan.name },
-      { label: 'Age', value: ageConfig(state).label },
-      { label: 'Billing', value: billingSummary(state) },
+      { label: 'Age', value: ageLabel },
+      { label: 'Billing', value: billingSummary(normalized) },
       { label: 'Region', value: region.label },
-      { label: 'Total', value: `${formatMoney(priceFor(state))} / ${periodFor(state)}` }
+      { label: 'Total', value: `${formatMoney(priceFor(normalized))} / ${periodFor(normalized)}` }
     ]
   };
 }
@@ -348,20 +431,21 @@ function countryResultNode(state) {
 }
 
 function renderPlanSelection(state) {
-  const plan = PLANS[state.plan];
-  const price = priceFor(state);
-  const currentRegion = regionOptions(state).find((item) => item.id === state.region) || regionOptions(state)[0];
+  const normalized = normalizeCoverageState(state);
+  const plan = PLANS[normalized.plan];
+  const price = priceFor(normalized);
+  const currentRegion = regionOptions(normalized).find((item) => item.id === normalized.region) || regionOptions(normalized)[0];
 
   return {
     type: 'section',
     title: 'Step 1: Pricing calculator',
-    description: 'Build the quote like the SafetyWing calculator. Pick the plan, age, billing, and extra coverage before moving to country checks.',
+    description: 'Build the quote like the SafetyWing calculator. Pick the plan, age, billing, and extra coverage before moving to country checks. Complete is available for ages 18-64.',
     children: [
       {
         type: 'stat',
         label: 'Total cost in USD',
-        value: `${formatMoney(price)} / ${periodFor(state)}`,
-        helper: `${plan.coverageLimit} coverage limit • ${currentRegion.label}${annualDiscount(state) ? ' • 10% annual discount included' : ''}`
+        value: `${formatMoney(price)} / ${periodFor(normalized)}`,
+        helper: `${plan.coverageLimit} coverage limit • ${currentRegion.label}${annualDiscount(normalized) ? ' • 10% annual discount included' : ''}`
       },
       {
         type: 'choiceGroup',
@@ -373,52 +457,54 @@ function renderPlanSelection(state) {
             value: item.description,
             helper: item.coverageLimit,
             icon: item.icon,
-            selected: state.plan === planId,
-            action: stateAction(state, planPatch(planId))
+            selected: normalized.plan === planId,
+            action: stateAction(normalized, planPatch(planId))
           };
         })
       },
       {
         type: 'choiceGroup',
         columns: 'five',
-        options: AGE_BANDS.map((age) => ({
+        options: ageOptionsForPlan(normalized.plan).map((age) => ({
           label: age.label,
-          value: state.plan === 'essential' ? `${formatMoney(age.essential4w)} / 4 weeks` : `${formatMoney(age.completeMonth)} / month`,
-          selected: state.age === age.id,
-          action: stateAction(state, { age: age.id })
+          value: normalized.plan === 'essential' ? `${formatMoney(age.essential4w)} / 4 weeks` : `${formatMoney(age.completeMonth)} / month`,
+          icon: age.icon,
+          selected: normalized.age === age.id,
+          action: stateAction(normalized, normalizeCoverageState(nextState(normalized, { age: age.id, region: 'standard' })))
         }))
       },
       {
         type: 'choiceGroup',
         columns: 'two',
-        options: availableTerms(state).map((term) => ({
+        options: availableTerms(normalized).map((term) => ({
           label: term.label,
           value: term.helper,
           helper: term.id === '364d' || term.id === 'yearly' ? 'Annual pricing' : 'Flexible billing',
+          icon: term.icon,
           badge: term.id === '364d' || term.id === 'yearly' ? 'Save 10%' : undefined,
-          selected: state.term === term.id,
-          action: stateAction(state, { term: term.id })
+          selected: normalized.term === term.id,
+          action: stateAction(normalized, { term: term.id })
         }))
       },
       {
         type: 'choiceGroup',
         columns: 'two',
-        options: regionOptions(state).map((region) => ({
+        options: regionOptions(normalized).map((region) => ({
           label: region.label,
           value: region.helper,
-          helper: region.id === 'standard' ? 'Base cover' : 'Quoted separately by SafetyWing',
+          helper: region.id === 'standard' ? 'Base cover' : 'Age-based extra premium',
           icon: region.icon,
           badge: region.badge,
-          selected: state.region === region.id,
-          action: stateAction(state, { region: region.id })
+          selected: normalized.region === region.id,
+          action: stateAction(normalized, { region: region.id })
         }))
       },
-      summaryBadges(state),
+      summaryBadges(normalized),
       {
         type: 'buttonRow',
         buttons: [
           { label: `What ${plan.shortName} covers`, variant: 'secondary', action: { type: 'navigate', href: plan.officialUrl } },
-          { label: 'Continue to countries →', variant: 'primary', action: stateAction(state, { step: 2 }) }
+          { label: 'Continue to countries →', variant: 'primary', action: stateAction(normalized, { step: 2 }) }
         ]
       }
     ]
@@ -426,8 +512,9 @@ function renderPlanSelection(state) {
 }
 
 function renderCountries(state) {
-  const plan = PLANS[state.plan];
-  const stayLimit = state.plan === 'essential'
+  const normalized = normalizeCoverageState(state);
+  const plan = PLANS[normalized.plan];
+  const stayLimit = normalized.plan === 'essential'
     ? 'Essential is worldwide travel coverage, with the US only included when you add US coverage. Home-country stays are limited to 30 days every 90 days of cover, or 15 days for the US.'
     : 'Complete is broader health cover. Hong Kong, Singapore, and the United States require the HK, Singapore, and US add-on.';
 
@@ -436,23 +523,23 @@ function renderCountries(state) {
     title: 'Step 2: Check a country',
     description: `${plan.shortName} availability updates from your current plan and add-on choices. China is included in the sample list.`,
     children: [
-      summaryList(state),
+      summaryList(normalized),
       { type: 'text', text: stayLimit, tone: 'success' },
       {
         type: 'search',
         label: 'Country',
-        value: state.countryQuery,
+        value: normalized.countryQuery,
         placeholder: 'Try China, United States, Hong Kong, Singapore, Portugal…',
         buttonLabel: 'Check country',
         field: 'countryQuery',
-        action: stateAction(state, {})
+        action: stateAction(normalized, {})
       },
-      countryResultNode(state),
+      countryResultNode(normalized),
       {
         type: 'buttonRow',
         buttons: [
           { label: 'Open country map', variant: 'secondary', action: { type: 'navigate', href: COUNTRY_MAP_URL } },
-          ...navigationButtons(state, { nextLabel: 'Continue to account details →' }).buttons
+          ...navigationButtons(normalized, { nextLabel: 'Continue to account details →' }).buttons
         ]
       }
     ]
@@ -460,34 +547,36 @@ function renderCountries(state) {
 }
 
 function renderAccountDetails(state) {
+  const normalized = normalizeCoverageState(state);
   return {
     type: 'section',
     title: 'Step 3: Account details',
     description: 'Save the member details for this quote. The plugin keeps the draft locally until you send the transfer from Wall Money.',
     children: [
-      summaryList(state),
+      summaryList(normalized),
       {
         type: 'form',
         fields: [
-          { name: 'member.name', label: 'Full name', placeholder: 'Alex Morgan', value: state.member.name },
-          { name: 'member.email', label: 'Email', type: 'email', placeholder: 'alex@example.com', value: state.member.email },
-          { name: 'member.residence', label: 'Residence country', placeholder: 'Portugal', value: state.member.residence }
+          { name: 'member.name', label: 'Full name', placeholder: 'Alex Morgan', value: normalized.member.name },
+          { name: 'member.email', label: 'Email', type: 'email', placeholder: 'alex@example.com', value: normalized.member.email },
+          { name: 'member.residence', label: 'Residence country', placeholder: 'Portugal', value: normalized.member.residence }
         ],
         submitLabel: 'Save details',
-        action: stateAction(state, { step: 4 }, 'Details saved')
+        action: stateAction(normalized, { step: 4 }, 'Details saved')
       },
-      navigationButtons(state, { nextLabel: 'Continue to transfer →' })
+      navigationButtons(normalized, { nextLabel: 'Continue to transfer →' })
     ]
   };
 }
 
 function renderPayment(state) {
-  const plan = PLANS[state.plan];
-  const price = priceFor(state);
-  const region = regionOptions(state).find((item) => item.id === state.region) || regionOptions(state)[0];
-  const paymentReference = `${plan.reference}-${state.term}-${state.region}`;
+  const normalized = normalizeCoverageState(state);
+  const plan = PLANS[normalized.plan];
+  const price = priceFor(normalized);
+  const region = regionOptions(normalized).find((item) => item.id === normalized.region) || regionOptions(normalized)[0];
+  const paymentReference = `${plan.reference}-${normalized.term}-${normalized.region}`;
 
-  if (state.status === 'active') {
+  if (normalized.status === 'active') {
     return {
       type: 'section',
       title: 'Step 4: Coverage prepared',
@@ -496,18 +585,18 @@ function renderPayment(state) {
         {
           type: 'stat',
           label: 'Active until',
-          value: state.activeUntil || 'Recorded',
-          helper: `${plan.name} • ${activePeriodLabel(state)}`
+          value: normalized.activeUntil || 'Recorded',
+          helper: `${plan.name} • ${activePeriodLabel(normalized)}`
         },
         {
           type: 'list',
           items: [
             { label: 'Plan', value: plan.name },
-            { label: 'Cost', value: `${formatMoney(price)} / ${periodFor(state)}` },
+            { label: 'Cost', value: `${formatMoney(price)} / ${periodFor(normalized)}` },
             { label: 'Reference', value: paymentReference },
-            { label: 'Member', value: state.member.name || 'Not entered' },
-            { label: 'Email', value: state.member.email || 'Not entered' },
-            { label: 'Paid', value: formatDate(state.updatedAt) || 'Just now' }
+            { label: 'Member', value: normalized.member.name || 'Not entered' },
+            { label: 'Email', value: normalized.member.email || 'Not entered' },
+            { label: 'Paid', value: formatDate(normalized.updatedAt) || 'Just now' }
           ]
         },
         {
@@ -522,8 +611,8 @@ function renderPayment(state) {
   }
 
   const buttons = [];
-  if (state.step > 1) {
-    buttons.push({ label: '← Previous', variant: 'secondary', action: stateAction(state, { step: 3 }) });
+  if (normalized.step > 1) {
+    buttons.push({ label: '← Previous', variant: 'secondary', action: stateAction(normalized, { step: 3 }) });
   }
   buttons.push({
     label: 'Prefill transfer',
@@ -531,7 +620,7 @@ function renderPayment(state) {
     action: {
       type: 'payment',
       request: {
-        label: `${plan.name} ${periodFor(state)}`,
+        label: `${plan.name} ${periodFor(normalized)}`,
         amount: price.toFixed(2),
         reference: paymentReference,
         portalTransfer: {
@@ -539,7 +628,7 @@ function renderPayment(state) {
           currency: 'USD',
           amount: price.toFixed(2),
           platform: 'platform',
-          recurring: state.plan === 'complete' || state.term === '4w' ? 'monthly' : undefined
+          recurring: normalized.plan === 'complete' || normalized.term === '4w' ? 'monthly' : undefined
         }
       }
     }
@@ -553,8 +642,8 @@ function renderPayment(state) {
       {
         type: 'stat',
         label: 'Transfer total',
-        value: `${formatMoney(price)} / ${periodFor(state)}`,
-        helper: `${plan.shortName} • ${region.label}${annualDiscount(state) ? ' • 10% annual discount applied' : ''}`
+        value: `${formatMoney(price)} / ${periodFor(normalized)}`,
+        helper: `${plan.shortName} • ${region.label}${annualDiscount(normalized) ? ' • 10% annual discount applied' : ''}`
       },
       {
         type: 'list',
@@ -562,8 +651,8 @@ function renderPayment(state) {
           { label: 'Reference', value: paymentReference },
           { label: 'Region', value: region.label },
           { label: 'Extra premium', value: region.id === 'standard' ? 'None selected' : 'Quoted by SafetyWing before checkout' },
-          { label: 'Member', value: state.member.name || 'Not entered yet' },
-          { label: 'Email', value: state.member.email || 'Not entered yet' }
+          { label: 'Member', value: normalized.member.name || 'Not entered yet' },
+          { label: 'Email', value: normalized.member.email || 'Not entered yet' }
         ]
       },
       {

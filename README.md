@@ -18,8 +18,8 @@ The plugin lets a user choose a SafetyWing plan, review country availability, co
 The plugin is a guided step-by-step flow:
 
 1. Select plan, age, and billing period.
-   - Essential supports `4 weeks` and `364 days`.
-   - Complete supports `monthly` and `yearly`, with a 12 month commitment.
+   - Essential supports `4 weeks` and `364 days`, except the `364 days` option is not offered for `Under 10`.
+   - Complete supports `monthly` and `yearly`, with a 12 month commitment, and is only offered for ages `18-64`.
    - Plan, age, billing, and region/add-ons are controlled with dropdowns.
 2. Check country availability and stay limits.
    - The user searches for a country instead of scanning a long country list.
