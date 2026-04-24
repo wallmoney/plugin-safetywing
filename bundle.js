@@ -104,17 +104,17 @@ function formatMoney(value) {
 }
 
 function updateState(hostApi, patch) {
-  const state = normalizeState(hostApi.storage.get(STORAGE_KEY));
-  const next = nextState(state, patch);
-  hostApi.storage.set(STORAGE_KEY, next);
-  return next;
+	const state = normalizeState(hostApi.storage.get(STORAGE_KEY));
+	const next = nextState(state, patch);
+	hostApi.storage.set(STORAGE_KEY, next);
+	return next;
 }
 
 function nextState(state, patch) {
-  return Object.assign({}, state, patch, {
-    member: Object.assign({}, state.member, patch && patch.member ? patch.member : {}),
-    updatedAt: new Date().toISOString()
-  });
+	return Object.assign({}, state, patch, {
+		member: Object.assign({}, state.member, patch && patch.member ? patch.member : {}),
+		updatedAt: patch && typeof patch.updatedAt === 'string' ? patch.updatedAt : state.updatedAt
+	});
 }
 
 function stateAction(state, patch, message) {
@@ -296,7 +296,7 @@ function renderActivity(state) {
           { label: 'Plan', value: plan.name },
           { label: 'Age', value: ageConfig(state).label },
           { label: 'Cost', value: `${formatMoney(price)} / ${periodFor(state)}` },
-          { label: 'Updated', value: state.updatedAt ? new Date(state.updatedAt).toLocaleString() : 'Not started yet' }
+          { label: 'Updated', value: state.updatedAt || 'Not started yet' }
         ]
       }
     ]
@@ -309,9 +309,9 @@ module.exports = {
       this.hostApi = hostApi;
       this.unsubscribe = hostApi.events.onPaymentExecuted((result) => {
         if (result.status === 'executed') {
-          updateState(hostApi, { status: 'active', step: 5 });
+          updateState(hostApi, { status: 'active', step: 5, updatedAt: result.executedAt });
         } else if (result.status === 'opened') {
-          updateState(hostApi, { status: 'payment_pending', step: 4 });
+          updateState(hostApi, { status: 'payment_pending', step: 4, updatedAt: result.executedAt });
         }
       });
     },
