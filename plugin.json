@@ -4,13 +4,16 @@
   "repo": "plugin-safetywing",
   "name": "SafetyWing",
   "description": "Choose SafetyWing nomad insurance, review country availability, collect member details, and prefill payment from Wall Money.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "icon": "icon.svg",
   "bundle": "bundle.js",
   "permissions": [
-    "Open official SafetyWing plan and country map links",
-    "Store your local SafetyWing order draft and payment status",
-    "Prefill Wall Money transfer details for the selected plan"
+    "storage.get",
+    "storage.set",
+    "events.onPaymentExecuted",
+    "payments.openPrefilledPayment",
+    "ui.navigate",
+    "ui.notify"
   ],
   "entry": "default",
   "mota": {
